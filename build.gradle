@@ -18,9 +18,32 @@ repositories {
 }
 
 dependencies {
+	// spring boot
 	implementation 'org.springframework.boot:spring-boot-starter'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// spring webflux
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	testImplementation 'io.projectreactor:reactor-test'
+
+	// spring security
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// Spring Data R2DBC
+	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+
+	// mysql r2dbc
+	implementation 'io.asyncer:r2dbc-mysql:1.0.4'
+	testRuntimeOnly 'com.h2database:h2'
+	testImplementation 'io.r2dbc:r2dbc-h2'
+
+	// redis
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 }
 
 tasks.named('test') {
