@@ -66,22 +66,23 @@ public class JwtManager {
                 .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token not found or invalid")));
     }
 
-    public Mono<String> checkRefreshToken(ServerWebExchange exchange) {
+    public Mono<Void> checkRefreshToken(ServerWebExchange exchange) {
         return Mono.justOrEmpty(exchange.getRequest().getCookies().getFirst("REFRESH_TOKEN"))
                 .flatMap(cookie -> tokenRepository.getToken(cookie.getValue())
                         .flatMap(internalId -> regenerateToken(internalId, exchange))
+                        .then(Mono.empty())
                 )
-                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found or invalid")));
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found or invalid"))).then();
     }
 
-    public Mono<String> regenerateToken(String internalId, ServerWebExchange exchange) {
+    public Mono<Void> regenerateToken(String internalId, ServerWebExchange exchange) {
         return Mono.justOrEmpty(exchange.getRequest().getCookies().getFirst("REFRESH_TOKEN"))
                 .flatMap(cookie ->
                         tokenRepository.deleteToken(cookie.getValue())
                                 .then(createAccessToken(internalId, exchange))
                                 .then(createRefreshToken(internalId, exchange))
                 )
-                .thenReturn(internalId);
+                .then();
     }
 
     public Mono<String> logout(ServerWebExchange exchange) {
