@@ -1,6 +1,5 @@
 package life.ggumtle.token.common.jwt;
 
-import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.lang.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.annotation.Order;
@@ -22,7 +21,7 @@ public class JwtFilter implements WebFilter {
 
     private final JwtManager jwtManager;
 
-    private static final List<String> PERMIT_URL_LIST = List.of(
+    private static final List<String> AUTHORIZED_URL_ARRAY = List.of(
             "/info/.*"
     );
 
@@ -30,8 +29,8 @@ public class JwtFilter implements WebFilter {
     public Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
 
-        boolean isPermitted = PERMIT_URL_LIST.stream().anyMatch(path::matches);
-        if (isPermitted) {
+        boolean requiresAuthorization = AUTHORIZED_URL_ARRAY.stream().anyMatch(path::matches);
+        if (!requiresAuthorization) {
             return chain.filter(exchange);
         }
 
