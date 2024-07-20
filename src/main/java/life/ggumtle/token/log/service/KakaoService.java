@@ -47,14 +47,20 @@ public class KakaoService {
                 .flatMap(kakaoUserInfo -> {
                     String providerId = kakaoUserInfo.get("id").asText();
                     return usersRepository.findByProviderAndProviderId(Provider.KAKAO, providerId)
+                            .doOnNext(user -> System.out.println("User found: " + user))
                             .flatMap(user -> handleExistingUser(kakaoUserInfo, user, exchange))
-                            .switchIfEmpty(handleNewUser(kakaoUserInfo, exchange));
+                            .switchIfEmpty(Mono.defer(() -> {
+                                System.out.println("No user found, creating new user.");
+                                return handleNewUser(kakaoUserInfo, exchange);
+                            }));
                 })
                 .onErrorResume(e -> {
+                    System.out.println("Error occurred: " + e.getMessage());
                     exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(400));
                     return Mono.just(LoginResponseDto.builder().hasAccount(false).nickname(null).nicknameDuplicate(null).build());
                 });
     }
+
 
     private Mono<JsonNode> requestAccessToken(String authenticationCode) {
         System.out.println("Requesting access token with:");
