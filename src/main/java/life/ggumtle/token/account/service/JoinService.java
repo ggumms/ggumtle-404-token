@@ -4,7 +4,7 @@ import life.ggumtle.token.common.S3.S3Service;
 import life.ggumtle.token.common.entity.Survey;
 import life.ggumtle.token.common.entity.Users;
 import life.ggumtle.token.common.repository.SurveyRepository;
-import life.ggumtle.token.common.repository.UserRepository;
+import life.ggumtle.token.common.repository.UsersRepository;
 import life.ggumtle.token.account.dto.JoinRequestDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.codec.multipart.FilePart;
@@ -19,7 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class JoinService {
 
-    private final UserRepository userRepository;
+    private final UsersRepository usersRepository;
     private final SurveyRepository surveyRepository;
     private final S3Service s3Service;
 
@@ -33,7 +33,7 @@ public class JoinService {
                 .flatMap(profileImageUrl -> {
                     user.setProfileImage(profileImageUrl);
 
-                    return userRepository.save(user)
+                    return usersRepository.save(user)
                             .flatMap(savedUser -> {
                                 Survey survey = createSurvey(savedUser.getId(), joinRequestDto.getSurveyResult());
                                 return surveyRepository.save(survey)

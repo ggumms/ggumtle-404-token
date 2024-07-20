@@ -5,7 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import life.ggumtle.token.common.repository.UserRepository;
+import life.ggumtle.token.common.repository.UsersRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -22,7 +22,6 @@ import reactor.core.publisher.Mono;
 
 import java.security.Key;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -33,7 +32,7 @@ public class JwtManager {
     private static final Logger logger = LoggerFactory.getLogger(JwtManager.class);
 
     private final TokenRepository tokenRepository;
-    private final UserRepository userRepository;
+    private final UsersRepository usersRepository;
 
     @Value("${spring.jwt.secret.access}")
     private String accessSecretKey;
@@ -165,7 +164,7 @@ public class JwtManager {
     }
 
     public Mono<Authentication> getAuthentication(String internalId) {
-        return userRepository.findByInternalId(internalId)
+        return usersRepository.findByInternalId(internalId)
                 .map(userDetails -> (Authentication) new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()))
                 .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found")));
     }

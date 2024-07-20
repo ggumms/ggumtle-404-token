@@ -7,8 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Builder
-public class LoginDto {
-    private Boolean login;
+public class LoginResponseDto {
     private Boolean hasAccount;
     private String nickname;
     private Boolean nicknameDuplicate;

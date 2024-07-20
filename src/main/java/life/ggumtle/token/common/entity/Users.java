@@ -36,6 +36,9 @@ public class Users implements UserDetails {
     @Column("profile_image")
     private String profileImage;
 
+    @Column("account_status")
+    private Boolean hasAccount = false;
+
     @Column("survey_status")
     private Boolean surveyStatus = false;
 

@@ -6,11 +6,14 @@ import life.ggumtle.token.common.entity.Users;
 import life.ggumtle.token.common.exception.CustomException;
 import life.ggumtle.token.common.exception.ExceptionType;
 import life.ggumtle.token.common.jwt.JwtManager;
-import life.ggumtle.token.common.repository.UserRepository;
-import life.ggumtle.token.log.dto.LoginDto;
+import life.ggumtle.token.common.repository.UsersRepository;
+import life.ggumtle.token.common.response.Response;
+import life.ggumtle.token.common.response.ResponseFail;
+import life.ggumtle.token.log.dto.LoginResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -26,7 +29,7 @@ import java.util.UUID;
 public class KakaoService {
 
     private final WebClient webClient = WebClient.create();
-    private final UserRepository usersRepository;
+    private final UsersRepository usersRepository;
     private final JwtManager jwtManager;
 
     @Value("${spring.security.oauth2.client.provider.kakao.token-uri}")
@@ -40,47 +43,16 @@ public class KakaoService {
     @Value("${spring.security.oauth2.client.registration.kakao.redirect-uri}")
     private String redirectUri;
 
-    public Mono<LoginDto> kakaoLogin(String authenticationCode, ServerWebExchange exchange) {
+    public Mono<Response> kakaoLogin(String authenticationCode, ServerWebExchange exchange) {
         return requestAccessToken(authenticationCode)
                 .flatMap(this::fetchUsersInfo)
-                .flatMap(userInfo -> {
-                    JsonNode kakaoAccountNode = userInfo.path("kakao_account");
-                    String email = kakaoAccountNode.path("email").asText();
-                    String nickname = userInfo.path("properties").path("nickname").asText();
-
-                    return usersRepository.findByProviderAndProviderId(Provider.KAKAO, email)
-                            .flatMap(user -> jwtManager.createAccessToken(user.getInternalId(), exchange)
-                                    .then(jwtManager.createRefreshToken(user.getInternalId(), exchange))
-                                    .thenReturn(LoginDto.builder()
-                                            .login(true)
-                                            .hasAccount(true)
-                                            .build()))
-                            .switchIfEmpty(usersRepository.existsByNickname(nickname)
-                                    .flatMap(exists -> {
-                                        if (exists) {
-                                            return Mono.just(LoginDto.builder()
-                                                    .login(false)
-                                                    .hasAccount(false)
-                                                    .nickname(nickname)
-                                                    .nicknameDuplicate(true)
-                                                    .build());
-                                        } else {
-                                            return registerUsers(userInfo)
-                                                    .flatMap(user -> jwtManager.createAccessToken(user.getInternalId(), exchange)
-                                                            .then(jwtManager.createRefreshToken(user.getInternalId(), exchange))
-                                                            .thenReturn(LoginDto.builder()
-                                                                    .login(true)
-                                                                    .hasAccount(false)
-                                                                    .nickname(nickname)
-                                                                    .nicknameDuplicate(false)
-                                                                    .build()));
-                                        }
-                                    }));
-                })
-                .defaultIfEmpty(LoginDto.builder()
-                        .login(false)
-                        .hasAccount(false)
-                        .build());
+                    .flatMap(kakaoUserInfo -> {
+                        String providerId = kakaoUserInfo.get("sub").asText();
+                        return usersRepository.findByProviderAndProviderId(Provider.KAKAO, providerId)
+                                .flatMap(user -> handleExistingUser(user, exchange))
+                                .switchIfEmpty(handleNewUser(kakaoUserInfo, exchange));
+                    })
+                .onErrorResume(e -> Mono.just(new ResponseFail("AUTH_ERROR", e.getMessage())));
     }
 
     private Mono<JsonNode> requestAccessToken(String authenticationCode) {
@@ -114,18 +86,39 @@ public class KakaoService {
                 .bodyToMono(JsonNode.class);
     }
 
-    private Mono<Users> registerUsers(JsonNode UsersInfo) {
-        Users newUsers = new Users();
-        newUsers.setInternalId(String.valueOf(UUID.randomUUID()));
-        newUsers.setProvider(Provider.KAKAO);
-
-        JsonNode kakaoAccountNode = UsersInfo.path("kakao_account");
-        String email = kakaoAccountNode.path("email").asText();
-        newUsers.setProviderId(email);
-
-        String nickname = UsersInfo.path("properties").path("nickname").asText();
-        newUsers.setNickname(nickname);
-
-        return usersRepository.save(newUsers);
+    private Mono<Response> handleExistingUser(Users user, ServerWebExchange exchange) {
+        if (user.getHasAccount()) {
+            return jwtManager.createAccessToken(user.getInternalId(), exchange)
+                    .then(jwtManager.createRefreshToken(user.getInternalId(), exchange))
+                    .then(Mono.just(new Response("loginResponse", LoginResponseDto.builder()
+                            .hasAccount(true)
+                            .build())));
+        } else {
+            return jwtManager.createAccessToken(user.getInternalId(), exchange)
+                    .then(Mono.just(new Response("loginResponse", LoginResponseDto.builder()
+                            .hasAccount(false)
+                            .build())));
+        }
     }
+
+    private Mono<Response> handleNewUser(JsonNode kakaoUserInfo, ServerWebExchange exchange) {
+        String providerId = kakaoUserInfo.get("sub").asText();
+        String nickname = kakaoUserInfo.path("properties").path("nickname").asText();
+
+        Users newUser = new Users();
+        newUser.setProvider(Provider.KAKAO);
+        newUser.setProviderId(providerId);
+        newUser.setInternalId(UUID.randomUUID().toString());
+
+        return usersRepository.save(newUser)
+                .then(jwtManager.createAccessToken(newUser.getInternalId(), exchange))
+                .then(usersRepository.existsByNickname(nickname))
+                    .flatMap(isDuplicate ->
+                        Mono.just(new Response("loginResponse", LoginResponseDto.builder()
+                            .hasAccount(false)
+                            .nickname(nickname)
+                            .nicknameDuplicate(isDuplicate)
+                            .build())));
+    }
+
 }
