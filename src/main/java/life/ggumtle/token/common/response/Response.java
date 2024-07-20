@@ -4,10 +4,12 @@ package life.ggumtle.token.common.response;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.Serial;
 import java.util.HashMap;
 
 public class Response extends HashMap<String, Object> {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     public static final String RESULT 	= "result";
