@@ -22,7 +22,7 @@ public class JwtFilter implements WebFilter {
     private final JwtManager jwtManager;
 
     private static final List<String> AUTHORIZED_URL_ARRAY = List.of(
-            "/info/.*"
+            "/logout/.*"
     );
 
     @Override

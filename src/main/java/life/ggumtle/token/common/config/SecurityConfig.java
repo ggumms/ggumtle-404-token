@@ -26,7 +26,7 @@ public class SecurityConfig {
     private final JwtFilter jwtAuthenticationFilter;
 
     private static final String[] AUTHORIZE_URL_ARRAY = {
-            "/info/**"
+            "/logout"
     };
 
     @Bean

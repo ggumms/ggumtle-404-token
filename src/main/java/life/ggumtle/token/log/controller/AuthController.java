@@ -14,18 +14,11 @@ import reactor.core.publisher.Mono;
 public class AuthController {
 
     private final KakaoService kakaoService;
-    private final JwtManager jwtManager;
 
     @GetMapping("/kakao")
     public Mono<Response> kakaoLogin(@RequestParam String code, ServerWebExchange exchange) {
         return kakaoService.kakaoLogin(code, exchange)
                 .map(result -> new Response("loginResponse", result));
-    }
-
-    @GetMapping("/logout")
-    public Mono<Response> logout(ServerWebExchange exchange){
-        return jwtManager.logout(exchange)
-                .map(result -> new Response("logout", result));
     }
 
 }
