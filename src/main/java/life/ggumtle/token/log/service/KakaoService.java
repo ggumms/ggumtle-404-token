@@ -7,8 +7,6 @@ import life.ggumtle.token.common.exception.CustomException;
 import life.ggumtle.token.common.exception.ExceptionType;
 import life.ggumtle.token.common.jwt.JwtManager;
 import life.ggumtle.token.common.repository.UsersRepository;
-import life.ggumtle.token.common.response.Response;
-import life.ggumtle.token.common.response.ResponseFail;
 import life.ggumtle.token.log.dto.LoginResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,20 +41,20 @@ public class KakaoService {
     @Value("${spring.security.oauth2.client.registration.kakao.redirect-uri}")
     private String redirectUri;
 
-    public Mono<Response> kakaoLogin(String authenticationCode, ServerWebExchange exchange) {
+    public Mono<LoginResponseDto> kakaoLogin(String authenticationCode, ServerWebExchange exchange) {
         return requestAccessToken(authenticationCode)
                 .flatMap(this::fetchUsersInfo)
-                    .flatMap(kakaoUserInfo -> {
-                        String providerId = kakaoUserInfo.get("id").asText();
-                        return usersRepository.findByProviderAndProviderId(Provider.KAKAO, providerId)
-                                .flatMap(user -> handleExistingUser(user, exchange))
-                                .switchIfEmpty(handleNewUser(kakaoUserInfo, exchange));
-                    })
+                .flatMap(kakaoUserInfo -> {
+                    String providerId = kakaoUserInfo.get("id").asText();
+                    return usersRepository.findByProviderAndProviderId(Provider.KAKAO, providerId)
+                            .flatMap(user -> handleExistingUser(user, exchange))
+                            .switchIfEmpty(handleNewUser(kakaoUserInfo, exchange));
+                })
                 .onErrorResume(e -> {
-                    ResponseFail responseFail = new ResponseFail("AUTH_ERROR", e.getMessage());
                     exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(400));
-                    return Mono.just(responseFail);
-                });    }
+                    return Mono.just(LoginResponseDto.builder().hasAccount(false).nickname(null).nicknameDuplicate(null).build());
+                });
+    }
 
     private Mono<JsonNode> requestAccessToken(String authenticationCode) {
         System.out.println("Requesting access token with:");
@@ -103,24 +101,23 @@ public class KakaoService {
                 .doOnNext(response -> System.out.println("Received user info response: " + response));
     }
 
-    private Mono<Response> handleExistingUser(Users user, ServerWebExchange exchange) {
+    private Mono<LoginResponseDto> handleExistingUser(Users user, ServerWebExchange exchange) {
         if (user.getHasAccount()) {
             return jwtManager.createAccessToken(user.getInternalId(), exchange)
                     .then(jwtManager.createRefreshToken(user.getInternalId(), exchange))
-                    .then(Mono.just(new Response("loginResponse", LoginResponseDto.builder()
+                    .then(Mono.just(LoginResponseDto.builder()
                             .hasAccount(true)
-                            .build())));
+                            .build()));
         } else {
             return jwtManager.createAccessToken(user.getInternalId(), exchange)
-                    .then(Mono.just(new Response("loginResponse", LoginResponseDto.builder()
+                    .then(Mono.just(LoginResponseDto.builder()
                             .hasAccount(false)
-                            .build())));
+                            .build()));
         }
     }
 
-    private Mono<Response> handleNewUser(JsonNode kakaoUserInfo, ServerWebExchange exchange) {
+    private Mono<LoginResponseDto> handleNewUser(JsonNode kakaoUserInfo, ServerWebExchange exchange) {
         String providerId = kakaoUserInfo.get("id").asText();
-
         String nickname = kakaoUserInfo.path("properties").path("nickname").asText();
 
         System.out.println("Parsed providerId: " + providerId);
@@ -136,11 +133,10 @@ public class KakaoService {
                 .then(jwtManager.createAccessToken(newUser.getInternalId(), exchange))
                 .then(usersRepository.existsByNickname(nickname))
                 .flatMap(isDuplicate ->
-                        Mono.just(new Response("loginResponse", LoginResponseDto.builder()
+                        Mono.just(LoginResponseDto.builder()
                                 .hasAccount(false)
                                 .nickname(nickname)
                                 .nicknameDuplicate(isDuplicate)
-                                .build())));
+                                .build()));
     }
-
 }
