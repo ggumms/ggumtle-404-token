@@ -47,7 +47,7 @@ public class KakaoService {
                 .flatMap(kakaoUserInfo -> {
                     String providerId = kakaoUserInfo.get("id").asText();
                     return usersRepository.findByProviderAndProviderId(Provider.KAKAO, providerId)
-                            .flatMap(user -> handleExistingUser(user, exchange))
+                            .flatMap(user -> handleExistingUser(kakaoUserInfo, user, exchange))
                             .switchIfEmpty(handleNewUser(kakaoUserInfo, exchange));
                 })
                 .onErrorResume(e -> {
@@ -101,7 +101,7 @@ public class KakaoService {
                 .doOnNext(response -> System.out.println("Received user info response: " + response));
     }
 
-    private Mono<LoginResponseDto> handleExistingUser(Users user, ServerWebExchange exchange) {
+    private Mono<LoginResponseDto> handleExistingUser(JsonNode kakaoUserInfo, Users user, ServerWebExchange exchange) {
         if (user.getHasAccount()) {
             return jwtManager.createAccessToken(user.getInternalId(), exchange)
                     .then(jwtManager.createRefreshToken(user.getInternalId(), exchange))
@@ -109,10 +109,16 @@ public class KakaoService {
                             .hasAccount(true)
                             .build()));
         } else {
+            String nickname = kakaoUserInfo.path("properties").path("nickname").asText();
+
             return jwtManager.createAccessToken(user.getInternalId(), exchange)
-                    .then(Mono.just(LoginResponseDto.builder()
-                            .hasAccount(false)
-                            .build()));
+                    .then(usersRepository.existsByNickname(nickname))
+                    .flatMap(isDuplicate ->
+                            Mono.just(LoginResponseDto.builder()
+                                    .hasAccount(false)
+                                    .nickname(nickname)
+                                    .nicknameDuplicate(isDuplicate)
+                                    .build()));
         }
     }
 
