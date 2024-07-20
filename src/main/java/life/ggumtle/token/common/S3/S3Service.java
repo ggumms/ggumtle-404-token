@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
@@ -17,8 +18,6 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 public class S3Service {
-
-    private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
 
     private final S3AsyncClient s3AsyncClient;
     private final String bucketName;
@@ -34,7 +33,9 @@ public class S3Service {
 
     public Mono<String> uploadFile(FilePart filePart) {
         String keyName = Paths.get(System.currentTimeMillis() + "_" + filePart.filename()).toString();
-        logger.info("Uploading file: {}", keyName);
+//         Uncomment the following line to enable logging
+//         Logger logger = LoggerFactory.getLogger(S3Service.class);
+//         logger.info("Uploading file: {}", keyName);
 
         return filePart.content()
                 .reduce(new byte[0], (bytes, dataBuffer) -> {
@@ -54,10 +55,29 @@ public class S3Service {
 
                     return Mono.fromFuture(future)
                             .map(response -> {
-                                logger.info("File uploaded to S3 with ETag: {}", response.eTag());
+//                                 logger.info("File uploaded to S3 with ETag: {}", response.eTag());
                                 return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, keyName);
                             })
                             .subscribeOn(Schedulers.boundedElastic());
                 });
+    }
+
+    public Mono<Void> deleteFile(String keyName) {
+//         Uncomment the following line to enable logging
+//         Logger logger = LoggerFactory.getLogger(S3Service.class);
+//         logger.info("Deleting file: {}", keyName);
+
+        DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(keyName)
+                .build();
+
+        CompletableFuture<Void> future = s3AsyncClient.deleteObject(deleteObjectRequest)
+                .thenAccept(response -> {
+//                     logger.info("File deleted from S3 with key: {}", keyName);
+                });
+
+        return Mono.fromFuture(future)
+                .subscribeOn(Schedulers.boundedElastic());
     }
 }
