@@ -38,3 +38,4 @@ out/
 
 ### resource ###
 **/src/main/resources/**
+!**/src/main/resources/bootstrap.yml

@@ -1,0 +1,53 @@
+name: deploy for backend test server
+
+on: push
+
+jobs:
+  build-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Setup environment variables for bootstrap.yml
+        run: |
+          echo "test.server.port=${{ secrets.TEST_SERVER_PORT }}" >> src/main/resources/bootstrap.yml
+          echo "test.vault.engine=${{ secrets.TEST_VAULT_ENGINE }}" >> src/main/resources/bootstrap.yml
+          echo "test.vault.token=${{ secrets.TEST_VAULT_TOKEN }}" >> src/main/resources/bootstrap.yml
+          echo "test.vault.uri=${{ secrets.TEST_VAULT_URI }}" >> src/main/resources/bootstrap.yml
+
+      - name: Push Docker image latest
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKER_CONTAINER }}
+
+  deploy-test-server:
+    needs: build-docker-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to lightsail instance
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.TEST_SERVER_HOST }}
+          username: ${{ secrets.TEST_SERVER_USER }}
+          key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+          script: |
+            sudo docker stop ${{ secrets.TEST_DOCKER_CONTAINER }} || true
+            sudo docker rm ${{ secrets.TEST_DOCKER_CONTAINER }} || true
+            sudo docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKER_CONTAINER }}
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKER_CONTAINER }}
+            sudo docker run --name ${{ secrets.TEST_DOCKER_CONTAINER }} -d \
+            -p ${{ secrets.TEST_SERVER_PORT }}:${{ secrets.TEST_SERVER_PORT }} \
+            --network=bridge \
+            --restart unless-stopped \
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKER_CONTAINER }}
+            sudo docker container prune -f
