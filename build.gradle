@@ -13,6 +13,16 @@ java {
 	}
 }
 
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+ext {
+	set('springCloudVersion', "2023.0.1")
+}
+
 repositories {
 	mavenCentral()
 }
@@ -56,6 +66,17 @@ dependencies {
 
 	// S3
 	implementation 'software.amazon.awssdk:s3:2.17.106'
+
+	// vault
+	implementation 'org.springframework.cloud:spring-cloud-starter-vault-config'
+	implementation 'org.springframework.vault:spring-vault-core:3.1.1'
+	implementation 'org.springframework.cloud:spring-cloud-starter-bootstrap'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
 }
 
 tasks.named('test') {
