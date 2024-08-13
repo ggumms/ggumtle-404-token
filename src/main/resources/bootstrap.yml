@@ -12,6 +12,6 @@ spring:
       token: ${test.vault.token}
       kv:
         enabled: true
-        backend: spring
-        default-context: application
+        backend: ${test.vault.engine}
+        default-context: ${test.vault.secret}
       uri: ${test.vault.uri}
