@@ -17,11 +17,11 @@ jobs:
 
       - name: Setup environment variables for bootstrap.yml
         run: |
-          echo "test.server.port=${{ secrets.TEST_SERVER_PORT }}" >> src/main/resources/bootstrap.yml
-          echo "test.vault.engine=${{ secrets.TEST_VAULT_ENGINE }}" >> src/main/resources/bootstrap.yml
-          echo "test.vault.token=${{ secrets.TEST_VAULT_TOKEN }}" >> src/main/resources/bootstrap.yml
-          echo "test.vault.uri=${{ secrets.TEST_VAULT_URI }}" >> src/main/resources/bootstrap.yml
-          echo "test.vault.secret=${{ secrets.TEST_VAULT_SECRET }}" >> src/main/resources/bootstrap.yml
+          echo "test.server.port=\"${{ secrets.TEST_SERVER_PORT }}\"" >> src/main/resources/bootstrap.yml
+          echo "test.vault.engine=\"${{ secrets.TEST_VAULT_ENGINE }}\"" >> src/main/resources/bootstrap.yml
+          echo "test.vault.token=\"${{ secrets.TEST_VAULT_TOKEN }}\"" >> src/main/resources/bootstrap.yml
+          echo "test.vault.uri=\"${{ secrets.TEST_VAULT_URI }}\"" >> src/main/resources/bootstrap.yml
+          echo "test.vault.secret=\"${{ secrets.TEST_VAULT_SECRET }}\"" >> src/main/resources/bootstrap.yml
 
       - name: Push Docker image latest
         uses: docker/build-push-action@v2
